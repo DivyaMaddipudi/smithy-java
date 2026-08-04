@@ -117,6 +117,29 @@ public class McpServerTest {
     }
 
     @Test
+    public void initializeWithV2025_11_25ProtocolVersion() {
+        server = McpServer.builder()
+                .name("smithy-mcp-server")
+                .input(input)
+                .output(output)
+                .addService("test-mcp",
+                        ProxyService.builder()
+                                .service(ShapeId.from("smithy.test#TestService"))
+                                .proxyEndpoint("http://localhost")
+                                .model(MODEL)
+                                .build())
+                .build();
+
+        server.start();
+
+        initializeWithProtocolVersion(ProtocolVersion.v2025_11_25.INSTANCE);
+        write("tools/list", Document.of(Map.of()));
+        var response = read();
+        var tools = response.getResult().asStringMap().get("tools").asList();
+        assertEquals(6, tools.size());
+    }
+
+    @Test
     public void noOutputSchemaWithUnsupportedProtocolVersion() {
         server = McpServer.builder()
                 .name("smithy-mcp-server")
