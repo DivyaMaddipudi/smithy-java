@@ -555,12 +555,16 @@ public final class McpService {
             // Check if this is a tools/list_changed notification
             if ("notifications/tools/list_changed".equals(notification.getMethod())) {
                 LOG.debug("Received tools/list_changed notification from proxy: {}", proxy.name());
-                // Remove only this proxy's tools
-                tools.entrySet().removeIf(entry -> entry.getValue().proxy() == proxy);
-                // Re-fetch tools from only this proxy
-                List<ToolInfo> proxyTools = proxy.listTools();
-                for (var toolInfo : proxyTools) {
-                    tools.put(toolInfo.getName(), new Tool(toolInfo, proxy.name(), proxy));
+                // Re-fetch this proxy's tools BEFORE removing the old set, so a failed refresh keeps the
+                // previously-registered tools instead of dropping the proxy to zero tools.
+                try {
+                    List<ToolInfo> proxyTools = proxy.listTools();
+                    tools.entrySet().removeIf(entry -> entry.getValue().proxy() == proxy);
+                    for (var toolInfo : proxyTools) {
+                        tools.put(toolInfo.getName(), new Tool(toolInfo, proxy.name(), proxy));
+                    }
+                } catch (Exception e) {
+                    LOG.error("Failed to re-fetch tools from proxy: " + proxy.name(), e);
                 }
             }
             // Forward the notification
@@ -606,9 +610,13 @@ public final class McpService {
                     proxy.initialize(responseWriter, proxyNotificationWriter, initRequest, protocolVersion);
                 }
 
-                List<ToolInfo> proxyTools = proxy.listTools();
-                for (var toolInfo : proxyTools) {
-                    tools.put(toolInfo.getName(), new Tool(toolInfo, proxy.name(), proxy));
+                try {
+                    List<ToolInfo> proxyTools = proxy.listTools();
+                    for (var toolInfo : proxyTools) {
+                        tools.put(toolInfo.getName(), new Tool(toolInfo, proxy.name(), proxy));
+                    }
+                } catch (Exception e) {
+                    LOG.error("Failed to fetch tools from proxy: " + proxy.name(), e);
                 }
 
                 // Fetch and register prompts from proxy
